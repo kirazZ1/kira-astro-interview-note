@@ -26,11 +26,11 @@ export default defineConfig({
                 label: 'JavaScript',
                 autogenerate: { directory: 'javaScript' },
             },
+             {
+                label: 'Vue',
+                autogenerate: { directory: 'vue' },
+            },
 
         ],
     }), mdx()],
-    // i18n: {
-    //     defaultLocale: 'zh-cn',
-    //     locales: ["zh-cn"],
-    // },
 });
