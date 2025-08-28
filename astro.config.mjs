@@ -20,7 +20,7 @@ export default defineConfig({
                 lang: 'zh-CN',
             },
         },
-
+        lastUpdated: true,
         sidebar: [
             {
                 label: 'JavaScript',

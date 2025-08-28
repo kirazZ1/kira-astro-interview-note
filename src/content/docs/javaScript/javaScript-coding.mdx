@@ -735,11 +735,145 @@ console.log(res1, res2, res3, res4, res5);
 具体实现：
 
 ```js
+class LRUCache {
 
+    limit = 0
+    cache = new Map()
+
+    constructor(limit) {
+        this.limit = limit
+    }
+
+    put(key, value) {
+        if (this.cache.size === this.limit) {
+            const expiredKey = this.cache.keys().next().value
+            this.cache.delete(expiredKey)
+        }
+        this.cache.set(key, value)
+    }
+
+    get(key) {
+        if (!this.cache.has(key)) {
+            return undefined
+        }
+        const res = this.cache.get(key)
+        this.cache.delete(key)
+        this.cache.set(key, res)
+        return res
+    }
+}
+
+const lruCache = new LRUCache(2);
+lruCache.put(1, 1);
+lruCache.put(2, 2);
+const res1 = lruCache.get(1);
+lruCache.put(3, 3);
+const res2 = lruCache.get(2);
+lruCache.put(4, 4);
+const res3 = lruCache.get(1);
+const res4 = lruCache.get(3);
+const res5 = lruCache.get(4);
+
+console.log(res1, res2, res3, res4, res5);
 ```
-
-### SWR
 
 ### ajax
 
+```js
+// 发送Ajax请求的函数
+function ajax(method, url, data) {
+
+    // 创建XHR对象
+    const xhr = new XMLHttpRequest()
+
+    // 初始化请求
+    xhr.open(method, url, true)
+
+    // 设置请求头
+    if (method === 'POST' && data) {
+        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8')
+    }
+
+    return new Promise((resolve, reject) => {
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const response = JSON.parse(xhr.responseText)
+                        resolve(response)
+                    } catch (e) {
+                        reject(xhr)
+                    }
+                } else {
+                    // 请求失败
+                    reject(xhr)
+
+                }
+            }
+        };
+
+        // 处理网络错误
+        xhr.onerror = function (e) {
+            reject(e)
+        };
+
+        // 发送请求
+        if (method === 'POST' && data) {
+            xhr.send(JSON.stringify(data))
+        } else {
+            xhr.send()
+        }
+    })
+}
+
+```
+
+
 ### jsonp
+
+```js
+function formatObjToQueryString(obj) {
+    // 添加 URL 编码
+    return Object.entries(obj)
+        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+        .join('&');
+}
+
+function jsonp(url, params) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        const callbackName = `jsonpCallBack_${Date.now()}_${Math.random().toString(36).substr(2)}`; // 更唯一的名称
+        const _url = `${url}?${formatObjToQueryString({ callback: callbackName, ...params })}`;
+
+        // 设置脚本 src
+        script.src = _url;
+
+        // 定义全局回调
+        window[callbackName] = function(data) {
+            resolve(data);
+            cleanup(); // 请求成功后的清理
+        };
+
+        // 错误处理（例如网络错误）
+        script.onerror = function() {
+            reject(new Error('JSONP request failed'));
+            cleanup();
+        };
+
+        // 超时处理（可选）
+        const timeoutId = setTimeout(() => {
+            reject(new Error('JSONP request timeout'));
+            cleanup();
+        }, 5000); // 5秒超时
+
+        // 清理函数
+        function cleanup() {
+            clearTimeout(timeoutId);
+            delete window[callbackName];
+            document.body.removeChild(script);
+        }
+
+        document.body.appendChild(script);
+    });
+}
+```
