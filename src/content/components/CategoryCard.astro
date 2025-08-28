@@ -1,0 +1,52 @@
+---
+import { Image } from "astro:assets";
+import { Card, Icon } from "@astrojs/starlight/components";
+import { stackIcon } from "../utils/icons";
+
+interface Props {
+    title: string;
+    iconName: keyof typeof stackIcon;
+    link: string;
+}
+
+const { link, title, iconName = "vue" } = Astro.props;
+---
+
+<Card title="">
+    <div class="category-card-container">
+        <Image src={stackIcon[iconName]} alt="" width="70" height="70" />
+        <div class="category-card-text">
+            <span class="category-card-title">{title}</span>
+            <a class="category-card-link" href={link}>点击跳转 <Icon name="right-arrow" size="1.5rem" /></a
+            >
+        </div>
+    </div>
+</Card>
+
+<style>
+    .category-card-container {
+        display: flex;
+        column-gap: 24px;
+        margin-bottom: clamp(0.5rem,calc(0.125rem + 1vw),1rem);
+    }
+
+    .category-card-text {
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .category-card-title {
+        font-weight: 600;
+        font-size: var(--sl-text-h4);
+        color: var(--sl-color-white);
+        line-height: var(--sl-line-height-headings);
+    }
+
+    .category-card-link {
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+    }
+</style>

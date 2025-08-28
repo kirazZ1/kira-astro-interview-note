@@ -1,0 +1,27 @@
+---
+title: kira的面试笔记 
+template: splash
+description: zzz
+hero:
+  tagline: 这里有一些前端面试题 O(∩_∩)O	
+  image:
+    file: ../../assets/logo.png
+  actions:
+    - text: 开始学习
+      link: /javascript
+      icon: right-arrow
+prev: false
+next: false
+---
+ 
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import CategoryCard from '../components/CategoryCard.astro';
+
+
+<CardGrid> 
+	<CategoryCard title='JavaScript' iconName='javascript' link="/javascript"/>
+	<CategoryCard title='Vue' iconName='vue' link="/vue"/>
+		 
+	 
+</CardGrid>

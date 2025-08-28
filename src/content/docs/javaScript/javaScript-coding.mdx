@@ -1,0 +1,745 @@
+---
+title: JavaScript 手写题
+---
+ 
+
+## 常用工具函数实现
+
+### 深拷贝
+
+```js
+function cloneDeep(obj, refCache = new WeakMap()) {
+
+    // 处理基本数据类型/function（一般function类型直接复制引用即可）
+    if (obj === undefined || obj === null || typeof obj === 'function' || typeof obj !== 'object') {
+        return obj
+    }
+
+
+    // 循环引用检测
+    if (refCache.has(obj)) {
+        return refCache.get(obj)
+    }
+
+    if (obj instanceof Date) { 
+        return new Date(obj.getTime())
+    } 
+    
+    if (obj instanceof RegExp) { 
+        return new RegExp(obj)
+    }
+
+    let newObj = null
+    if (Array.isArray(obj)) {
+        newObj = obj.map(item => cloneDeep(item, refCache))
+    } else {
+        newObj = Object.keys(obj).reduce((pre, cur) => {
+            pre[cur] = cloneDeep(obj[cur], refCache)
+            return pre
+        }, {})
+    }
+    refCache.set(obj, newObj)
+
+    return newObj
+
+}
+```
+
+### 函数柯里化
+
+```js
+function curried(fn) {
+    // 参数类型检查
+    if (typeof fn !== 'function') {
+        throw new Error("Parameter 'fn' is not a function.")
+    }
+    
+    // 获取原始函数的参数长度
+    const { length } = fn 
+    
+    // 返回柯里化后的函数
+    return function curriedFn(...args) { 
+        // 如果已收集的参数 >= 原始函数需要的参数，直接调用原始函数
+        if (args.length >= length) {
+            return fn.call(this, ...args)
+        }  
+        
+        // 否则返回一个新函数继续收集参数
+        return function (..._args) {
+            return curriedFn(...args, ..._args)
+        }
+    }
+}
+```
+
+### 防抖/节流
+
+防抖：
+
+```js
+function debounce(fn, time = 3000) {
+
+    let timer = null
+    return function (...args) {
+        if (timer) {
+            clearTimeout(timer)
+            timer = null
+        }
+        timer = setTimeout(() => {
+            return fn(...args)
+        }, time)
+    }
+
+}
+```
+
+节流：
+
+```js
+function throttle(fn, time = 3000) {
+    let timer = null
+
+    return function (...args) {
+        if (timer) {
+            return
+        }
+        timer = setTimeout(() => {
+            fn.call(this, ...args)
+            clearTimeout(timer)
+            timer = null
+        }, time);
+    }
+}
+```
+
+### 数组扁平化
+
+```js
+
+const a = [1, 2, [3, [4, 5], 6], 7]
+
+function flatten(arr) {
+    return arr.reduce((pre, cur) => {
+        if (Array.isArray(cur)) {
+            return [...pre, ...flatten(cur)]
+        }
+        return [...pre, cur]
+    }, [])
+}
+
+console.log(flatten(a))
+```
+
+### 一维数组转树
+
+```js
+// parent 不存在表示无父节点
+const arr1 = [
+    {
+        id: 1,
+    },
+    {
+        id: 2,
+        parent: 1
+    },
+    {
+        id: 3,
+        parent: 2
+    },
+    {
+        id: 4,
+    },
+    {
+        id: 5,
+        parent: 4
+    },
+    {
+        id: 6,
+        parent: 4
+    }
+]
+
+function arrToTree(arr = []) {
+    const nodeMap = new Map()
+    const res = []
+    arr.forEach(item => {
+        if (!item.parent) {
+            res.push(item)
+        }
+        nodeMap.set(item.id, item)
+    })
+    arr.forEach(item => {
+        if (!item.parent) {
+            return
+        }
+        if (nodeMap.has(item.parent)) {
+            const { children = [] } = nodeMap.get(item.parent)
+            nodeMap.get(item.parent).children = [...children, item]
+            delete item.parent
+        }
+    })
+    return res
+}
+
+console.log(JSON.stringify(arrToTree(arr1), null, 2))
+```
+
+### 树转一维数组
+
+```js
+const tree = [
+    {
+        "id": 1,
+        "children": [
+            {
+                "id": 2,
+                "children": [
+                    {
+                        "id": 3
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": 4,
+        "children": [
+            {
+                "id": 5
+            },
+            {
+                "id": 6
+            }
+        ]
+    }
+]
+
+function treeToArr(tree = [], parent) {
+    return tree.reduce((pre, cur) => {
+        if (cur.children) {
+            return [...pre, { id: cur.id }, ...treeToArr(cur.children, cur.id)]
+        } else {
+            return [...pre, { id: cur.id, parent }]
+        }
+    }, [])
+}
+
+console.log(treeToArr(tree))
+```
+
+### pipe/compose
+
+pipe:
+
+```js
+function pipe(...fnArgs) {
+    return function (...args) {
+        return fnArgs.reduce((pre, cur) => {
+            if (pre === null) {
+                pre = cur.call(this, ...args)
+            } else {
+                pre = cur.call(this, pre)
+            }
+            return pre
+        }, null)
+    }
+}
+ 
+
+const add = (a, b) => a + b;
+const square = (x) => x * x;
+const double = (x) => x * 2;
+const addSquareDouble = pipe(add, square, double);
+
+console.log(addSquareDouble(1, 2)); // 18
+```
+
+compose:
+
+```js
+function compose(...fnArgs) {
+    return function (...args) {
+        return fnArgs.reduceRight((pre, cur) => {
+            if (pre === null) {
+                pre = cur.call(this, ...args)
+            } else {
+                pre = cur.call(this, pre)
+            }
+            return pre
+        }, null)
+    }
+}
+ 
+
+const add = (a, b) => a + b;
+const square = (x) => x * x;
+const double = (x) => x * 2;
+const addSquareDouble = compose(double,square, add); // double(square(add(a,b)))
+
+console.log(addSquareDouble(1, 2)); // 18
+```
+
+### 并发数控制
+
+```js
+const tasks = new Array(100).fill(0).map((_, index) => {
+    return () => {
+        return new Promise((resolve) => {
+            console.log(`Task ${index} is running...`)
+            setTimeout(() => {
+                console.log(`Task ${index} is finished!!!`)
+                resolve(index)
+            }, Math.random() * 10000)
+        })
+    }
+})
+
+
+const concurrencyControl = (tasks = [], maxNum = 10) => {
+    const resArr = new Array(tasks.length).fill(null)
+    const { promise, resolve, reject } = Promise.withResolvers();
+    let nextTaskIndex = 0
+    let runningTasksNum = 0
+    let finishedTasksNum = 0
+    const run = () => { 
+        if (runningTasksNum === maxNum || nextTaskIndex === tasks.length) {
+            return
+        }
+        runningTasksNum++
+        let currentTaskIndex = nextTaskIndex
+        tasks[currentTaskIndex]().then((res) => {
+            resArr[currentTaskIndex] = res
+            runningTasksNum--
+            finishedTasksNum++
+            if (finishedTasksNum === tasks.length) {
+              resolve(resArr)
+            } else {
+              run()
+            }
+        }).catch((err) => reject(err))
+        nextTaskIndex++
+    }
+    for(let i = 0; i < maxNum; i++) {
+        run()
+    }
+    return promise
+}
+
+concurrencyControl(tasks).then((res) => {
+    console.log(res)
+})
+
+```
+
+### sleep/delay
+
+sleep:
+
+```js
+function sleep(time = 3000) {
+  const { promise, resolve } = Promise.withResolvers()
+
+  setTimeout(() => {
+    resolve()
+  }, time)
+
+  return promise
+}
+
+async function test() {
+    console.log("working...")
+    console.log("sleep 3000ms....")
+    await sleep(3000)
+    console.log("working...")
+}
+
+test()
+```
+delay（在 N 毫秒之后执行函数，并以函数结果作为返回值）：
+
+```js
+function delay(func, time, ...args) {
+    const { promise, resolve } = Promise.withResolvers()
+    setTimeout(() => {
+      resolve(func.call(this, ...args))
+    }, time);
+    return promise
+}
+
+// 在 3s 之后返回 hello, world
+const res1 = await delay((str) => str, 3000, "hello, world");
+ 
+console.log(res1)
+
+// 在 3s 之后返回 hello, world，第一个函数可返回 promise
+const res2 = await delay((str) => Promise.resolve(str), 3000, "hello, world");
+
+console.log(res2)
+```
+
+## 原生 API 模拟实现
+
+### instanceof
+
+注意点：尽量不要用`__proto__`获取对象原型，因为是非标准化的属性。
+
+```js
+function instanceOf(obj, constructorFn) {
+    if (obj === null || typeof obj !== 'object') {
+        return false;
+    }
+
+    let currentProto = Object.getPrototypeOf(obj)
+    while (currentProto !== constructorFn.prototype) {
+        if (currentProto === null) {
+            return false
+        }
+        currentProto = Object.getPrototypeOf(currentProto)
+    }
+    return true
+}
+```
+
+### new
+
+```js
+function _new(ctor, ...args) {
+    const obj = Object.create(ctor.prototype)
+    const result = ctor.apply(obj, args)
+    return result instanceof Object ? result : obj
+}
+```
+
+### Function - call/bind/apply
+
+call/apply:
+
+```js
+function call(fn, _this, ...args) {
+    const fnKey = Symbol()
+    _this[fnKey] = fn
+    const res = _this[fnKey](...args)
+    delete _this[fnKey]
+    return res
+}
+
+function apply(fn, _this, args) {
+    const fnKey = Symbol()
+    _this[fnKey] = fn
+    const res = _this[fnKey](...args)
+    delete _this[fnKey]
+    return res
+}
+```
+
+bind（基于上面的`call`实现）:
+
+```js
+function bind(fn, _this) {
+    return function(...args) {
+        return call(fn, _this, ...args)
+    }
+}
+```
+
+### Array - map/reduce
+
+map:
+
+```js
+function map(arr, func) {
+  const newArr = new Array(arr.length).fill(null)
+  for(let i = 0; i < arr.length; i++) {
+    newArr[i] = func(arr[i], i, arr)
+  }   
+  return newArr
+}
+```
+
+reduce:
+
+- 若`arr`为空且未提供`initVal`，需要抛出错误（遵循`Array.prototype.reduce`的实现）
+- `initVal`未提供时，则取`arr`的第一项，且遍历从第二项开始
+
+```js
+
+function reduce(arr, func, initVal) {
+    if (arr.length === 0 && initVal === undefined) {
+        throw new TypeError("Reduce of empty array with no initial value");
+    }
+    let res = initVal !== undefined ? initVal : arr[0];
+    let startIndex = initVal !== undefined ? 0 : 1;
+    
+    for (let i = startIndex; i < arr.length; i++) {
+        res = func(res, arr[i], i, arr);
+    }
+    return res;
+}
+```
+
+### Promise 
+
+简单版本的Promise（不严格遵循`Promise/A+`规范）:
+
+```js
+const PENDING = 'pending'
+const FULFILLED = 'fulfilled'
+const REJECTED = 'rejected'
+
+
+class MyPromise {
+
+    status = PENDING
+    reason = null
+    result = null
+
+    taskQueue = {
+        [FULFILLED]: [],
+        [REJECTED]: []
+    }
+
+    constructor(fn) {
+        const resolve = (res) => {
+            if (this.status !== PENDING) {
+                return
+            }
+            setTimeout(() => {
+                this.status = FULFILLED
+                this.result = res
+                this.taskQueue[FULFILLED].forEach(fn => fn())
+            })
+
+        }
+        const reject = (err) => {
+            if (this.status !== PENDING) {
+                return
+            }
+
+            setTimeout(() => {
+                this.status = REJECTED
+                this.reason = err
+                this.taskQueue[REJECTED].forEach(fn => fn())
+            })
+        }
+        fn(resolve, reject)
+    }
+
+    then(onFulfilled, onRejected) {
+        const _onFulfilled = onFulfilled || (x => x)
+
+        const _onRejected = onRejected || (x => x)
+
+        return new MyPromise((resolve, reject) => {
+            if (this.status === FULFILLED) {
+                resolve(_onFulfilled(this.result))
+            } else if (this.status === REJECTED) {
+                reject(_onRejected(this.reason))
+            } else {
+                this.taskQueue[FULFILLED].push(() => {
+                    resolve(_onFulfilled(this.result))
+                })
+                this.taskQueue[REJECTED].push(() => {
+                    reject(_onRejected(this.reason))
+                })
+            }
+        })
+    }
+
+    catch(onRejected) {
+        return this.then(undefined, onRejected)
+    }
+}
+```
+
+### Promise - all/race
+
+Promise.all:
+
+```js
+function PromiseAll(promiseArr = []) {
+    const { promise, resolve, reject } = Promise.withResolvers()
+    const resArr = new Array(promiseArr.length).fill(null)
+    let fulfilledNum = 0
+    promiseArr.forEach((item, index) => {
+        const onFulfilled = res => {
+            resArr[index] = res
+            fulfilledNum++
+            if (fulfilledNum === promiseArr.length) {
+                resolve(resArr)
+            }
+        }
+        if (item instanceof Promise) {
+            item.then(res => onFulfilled(res)).catch((err) => reject(err))
+        } else {
+            onFulfilled(res)
+        }
+
+    })
+    return promise
+}
+```
+
+Promise.race:
+
+```js
+function promiseRace(promiseArr = []) {
+    const { promise, resolve, reject } = Promise.withResolvers() 
+    promiseArr.forEach((item) => {
+        const onFulfilled = res => { 
+            resolve(res)
+        }
+        if (item instanceof Promise) {
+            item.then(res => onFulfilled(res)).catch((err) => reject(err))
+        } else {
+            onFulfilled(res)
+        }
+    })
+    return promise
+}
+```
+
+### Object - freeze
+
+```js
+function objectFreeze(obj) {
+    if (typeof obj !== 'object' || obj === null) {
+        return obj;
+    }
+    Object.preventExtensions(obj);
+    const propNames = Object.getOwnPropertyNames(obj);
+    const symbolProps = Object.getOwnPropertySymbols(obj);
+    const allProps = [...propNames, ...symbolProps];
+    allProps.forEach(function (key) {
+        const desc = Object.getOwnPropertyDescriptor(obj, key);
+        if ('value' in desc) {
+            if (desc.configurable || desc.writable) {
+                Object.defineProperty(obj, key, {
+                    configurable: false,
+                    writable: false
+                });
+            }
+        } else {
+            if (desc.configurable) {
+                Object.defineProperty(obj, key, {
+                    configurable: false
+                });
+            }
+        }
+    });
+
+    return obj;
+}
+```
+
+## 场景类
+
+### 发布 - 订阅
+
+实现`Event`类，使如下代码正常运行：
+
+```js
+const e = new Event();
+ 
+e.on("click", (x) => console.log(x.id));
+ 
+e.once("click", (x) => console.log("once", x.id)); // 订阅后只触发一次
+ 
+e.emit("click", { id: 3 }); //=> 3
+ 
+e.emit("click", { id: 4 }); //=> 4
+```
+
+`Event`类结构：
+
+```js
+class Event {
+  emit(type, ...args) {}
+  on(type, listener) {}
+  once(type, listener) {}
+  off(type, listener) {}
+}
+```
+
+具体实现：
+
+```js
+class Event {
+
+    eventCenter = new Map()
+
+    emit(type, ...args) {
+        (this.eventCenter.get(type) || []).forEach(listener => listener(...args))
+    }
+
+    on(type, listener) {
+        let listenerArr = this.eventCenter.get(type) || []
+        listenerArr = [...new Set([...listenerArr, listener])]
+        this.eventCenter.set(type, listenerArr)
+    }
+
+    once(type, listener) {
+        let listenerArr = this.eventCenter.get(type) || []
+        const _listener = (...args) => {
+            listener(...args)
+            this.off(type, _listener)
+        }
+        listenerArr = [...new Set([...listenerArr, _listener])]
+        this.eventCenter.set(type, listenerArr)
+     }
+
+    off(type, listener) {
+        let listenerArr = this.eventCenter.get(type) || []
+        listenerArr = listenerArr.filter(_listener => _listener !== listener)
+        if (listenerArr.length) {
+            this.eventCenter.set(type, listenerArr)
+        } else {
+            this.eventCenter.delete(type)
+        }
+    }
+}
+
+const e = new Event();
+ 
+e.on("click", (x) => {
+    console.log(x.id)
+});
+ 
+e.once("click", (x) => console.log("once", x.id)); // 订阅后只触发一次
+ 
+e.emit("click", { id: 3 }); //=> 3
+ 
+e.emit("click", { id: 4 }); //=> 4
+```
+
+### LRU Cache（最近最少使用页面置换算法）
+
+实现`LRUCache`类，使下面代码正常运行：
+
+```js
+const lruCache = new LRUCache(2);
+lruCache.put(1, 1);
+lruCache.put(2, 2);
+const res1 = lruCache.get(1);
+lruCache.put(3, 3);
+const res2 = lruCache.get(2);
+lruCache.put(4, 4);
+const res3 = lruCache.get(1);
+const res4 = lruCache.get(3);
+const res5 = lruCache.get(4);
+ 
+console.log(res1, res2, res3, res4, res5);
+// 1 undefined undefined 3 4
+
+```
+
+具体实现：
+
+```js
+
+```
+
+### SWR
+
+### ajax
+
+### jsonp
