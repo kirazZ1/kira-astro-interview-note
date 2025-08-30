@@ -17,8 +17,7 @@ const { link, title, iconName = "vue" } = Astro.props;
         <Image src={stackIcon[iconName]} alt="" width="70" height="70" />
         <div class="category-card-text">
             <span class="category-card-title">{title}</span>
-            <a class="category-card-link" href={link}>点击跳转 <Icon name="right-arrow" size="1.5rem" /></a
-            >
+            <a class="category-card-link" href={link}>点击跳转 <Icon name="right-arrow" size="1.5rem" /></a>
         </div>
     </div>
 </Card>

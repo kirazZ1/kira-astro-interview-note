@@ -100,6 +100,7 @@ const proxy = new Proxy(target, {
 有的场景下我们不需要对复杂对象进行深层次监听，为此`vue3`提供了`shallowRef`、`shallowReactive`这两个`API`。
 
 1. `shallowRef`
+
     - 场景：大型对象/数组的整体替换、第三方库实例（如`DOM`元素）管理、与渲染无关的临时状态。
 
     - 收益：跳过深层响应式转换，仅响应`.value`引用变化，提升初始化性能，减少内存开销。

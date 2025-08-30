@@ -20,9 +20,19 @@ importers:
       sharp:
         specifier: ^0.34.2
         version: 0.34.3
+      starlight-image-zoom:
+        specifier: ^0.13.0
+        version: 0.13.0(@astrojs/starlight@0.35.2(astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2)))
+      starlight-scroll-to-top:
+        specifier: ^0.3.1
+        version: 0.3.1(@astrojs/starlight@0.35.2(astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2)))
       starlight-theme-rapide:
         specifier: ^0.5.1
         version: 0.5.1(@astrojs/starlight@0.35.2(astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2)))
+    devDependencies:
+      astro-vtbot:
+        specifier: ^2.1.7
+        version: 2.1.7
 
 packages:
 
@@ -701,6 +711,21 @@ packages:
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
 
+  '@vtbag/cam-shaft@1.0.6':
+    resolution: {integrity: sha512-Xy1bmJJLXuCqxmY2agwPfhGNv1XZViqh54H0VGK4mouGsItFsh8Mz/wWAP6mZwAOEuu9bEOJ1mJ+oNoaczZ1zw==}
+
+  '@vtbag/element-crossing@1.1.0':
+    resolution: {integrity: sha512-1YL609KPwhHUKRrVNfoogQCVJPfFrE5DubOLcCJZLHVCjWZ2ZAPcaq1wR2OP6nXD0Ok9JLX41YsEtYBYzw6CxQ==}
+
+  '@vtbag/inspection-chamber@1.0.22':
+    resolution: {integrity: sha512-M0iVmgUEjTmjX3/LEVxpNFjqZSdKN/y6otH4aD6x8c3HhJjlD9OwStJaYHS8EoiQtvmPWIdG79iXOCesXTGfaQ==}
+
+  '@vtbag/turn-signal@1.3.1':
+    resolution: {integrity: sha512-6rWkG+ik3U+KQGI94yNOrOh5QedB9zmP/8H51X5WQwrJz8m2MAU5YwGRRcweO/dJ6wW/Bn7OsgC1vRURnwrvCg==}
+
+  '@vtbag/utensil-drawer@1.2.11':
+    resolution: {integrity: sha512-ZopaB1qd8RCjfbVCpI+xgVAzFVe/b65SzQhKX8E6+TLdkq7Tp2+0z091W0Ro7C4QHXpfi7Y93cXSA+1DDYQOVA==}
+
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
     peerDependencies:
@@ -751,6 +776,9 @@ packages:
     resolution: {integrity: sha512-u+zHMqo/QNLE2eqYRCrK3+XMlKakv33Bzuz+56V1gs8H0y6TZ0hIi3VNbIxeTn51NLn+mJfUV/A0kMNfE4rANw==}
     peerDependencies:
       astro: ^4.0.0-beta || ^5.0.0-beta || ^3.3.0
+
+  astro-vtbot@2.1.7:
+    resolution: {integrity: sha512-vL1QAgrr5s/DF7vaiNt6V+LDHDyy5QS8rsaOR7wqv6vHhCASS1O11T3/mFcUL8T1+6JS991RBf2xyZdywz2NIg==}
 
   astro@5.13.4:
     resolution: {integrity: sha512-Mgq5GYy3EHtastGXqdnh1UPuN++8NmJSluAspA5hu33O7YRs/em/L03cUfRXtc60l5yx5BfYJsjF2MFMlcWlzw==}
@@ -1613,6 +1641,18 @@ packages:
 
   space-separated-tokens@2.0.2:
     resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
+
+  starlight-image-zoom@0.13.0:
+    resolution: {integrity: sha512-7K/7gshnKooYd4ePy5vtyv1jFoFVNUb8IoXWDcnY69+nxvmLATNrmOzD2M4TJ/aKynPSBSM6j9ia4s/PPy/JGA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@astrojs/starlight': '>=0.32.0'
+
+  starlight-scroll-to-top@0.3.1:
+    resolution: {integrity: sha512-/RTpJKEjhyn9sE+d5FqQMkJyAzb2xy7e63dGdHPaG9/mFuHKYMriRoTiUGwBYMw3P5xlRJdn5RLkv3ZBOudbvA==}
+    engines: {node: ^18.17.1 || ^20.3.0 || >=21.0.0}
+    peerDependencies:
+      '@astrojs/starlight': '>=0.35'
 
   starlight-theme-rapide@0.5.1:
     resolution: {integrity: sha512-QRF6mzcYHLEX5UpUvOPXVVwISS298siIJLcKextoMLhXcnF12nX+IYJ0LNxFk9XaPbX9uDXIieSBJf5Pztkteg==}
@@ -2526,6 +2566,16 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
+  '@vtbag/cam-shaft@1.0.6': {}
+
+  '@vtbag/element-crossing@1.1.0': {}
+
+  '@vtbag/inspection-chamber@1.0.22': {}
+
+  '@vtbag/turn-signal@1.3.1': {}
+
+  '@vtbag/utensil-drawer@1.2.11': {}
+
   acorn-jsx@5.3.2(acorn@8.15.0):
     dependencies:
       acorn: 8.15.0
@@ -2561,6 +2611,14 @@ snapshots:
     dependencies:
       astro: 5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2)
       rehype-expressive-code: 0.41.3
+
+  astro-vtbot@2.1.7:
+    dependencies:
+      '@vtbag/cam-shaft': 1.0.6
+      '@vtbag/element-crossing': 1.1.0
+      '@vtbag/inspection-chamber': 1.0.22
+      '@vtbag/turn-signal': 1.3.1
+      '@vtbag/utensil-drawer': 1.2.11
 
   astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2):
     dependencies:
@@ -4077,6 +4135,20 @@ snapshots:
   source-map@0.7.6: {}
 
   space-separated-tokens@2.0.2: {}
+
+  starlight-image-zoom@0.13.0(@astrojs/starlight@0.35.2(astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2))):
+    dependencies:
+      '@astrojs/starlight': 0.35.2(astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2))
+      mdast-util-mdx-jsx: 3.2.0
+      rehype-raw: 7.0.0
+      unist-util-visit: 5.0.0
+      unist-util-visit-parents: 6.0.1
+    transitivePeerDependencies:
+      - supports-color
+
+  starlight-scroll-to-top@0.3.1(@astrojs/starlight@0.35.2(astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2))):
+    dependencies:
+      '@astrojs/starlight': 0.35.2(astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2))
 
   starlight-theme-rapide@0.5.1(@astrojs/starlight@0.35.2(astro@5.13.4(@types/node@24.3.0)(rollup@4.49.0)(typescript@5.9.2))):
     dependencies:
