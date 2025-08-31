@@ -6,9 +6,8 @@ import mdx from '@astrojs/mdx';
 import starlightImageZoom from 'starlight-image-zoom'
 import starlightScrollToTop from 'starlight-scroll-to-top';
 import { viewTransitions } from "astro-vtbot/starlight-view-transitions";
-
-
-
+import starlightSidebarTopics from 'starlight-sidebar-topics'
+import sideBarConfig from './src/config/sideBar'
 
 // https://astro.build/config
 export default defineConfig({
@@ -17,8 +16,12 @@ export default defineConfig({
             starlightThemeRapide(),
             starlightImageZoom(),
             starlightScrollToTop(),
-            viewTransitions()
+            viewTransitions(),
+            starlightSidebarTopics(sideBarConfig)
         ],
+        components: {
+            Sidebar: './src/content/components/Sidebar.astro',
+        },
         title: 'kira的面试笔记',
         // social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
         locales: {
@@ -29,20 +32,5 @@ export default defineConfig({
             },
         },
         lastUpdated: true,
-        sidebar: [
-            {
-                label: 'JavaScript',
-                autogenerate: { directory: 'javaScript' },
-            },
-            {
-                label: 'Vue',
-                autogenerate: { directory: 'vue' },
-            },
-            {
-                label: 'React',
-                autogenerate: { directory: 'react' },
-            },
-
-        ],
     }), mdx()],
 });
