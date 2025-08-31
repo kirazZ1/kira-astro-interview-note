@@ -1,0 +1,306 @@
+---
+title: React 原理
+
+tableOfContents:
+  minHeadingLevel: 2
+  maxHeadingLevel: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## React Fiber
+
+在`React 15`及以前，React 使用的是 “Stack Reconciler”（栈调和器）。当组件状态更新时，React 会立即、同步地从组件树的根部开始，递归地调用每个组件的渲染方法，对比新旧虚拟 DOM（这个过程称为 Diffing），然后一次性将变更应用到真实 DOM。这个过程就像在一个很深的函数调用栈里执行，必须一口气完成。
+
+栈调和器存在如下的几个痛点：
+
+- 不可中断：一旦开始渲染，就必须执行到底。
+
+- 阻塞主线程：如果组件树很大，这个计算过程会长时间占用`JavaScript`主线程。而浏览器的主线程还负责布局、绘制、处理用户输入（点击、滚动等）。结果就是，页面在渲染期间会卡顿、无响应，用户体验非常差。
+
+`React Fiber`解决了上述痛点，是`React v16`版本的重大更新，核心思想是将复杂的渲染更新任务拆分成多个小工作单元，并赋予其可中断、可恢复和优先级调度的能力，从而极大地提升用户体验和应用的响应速度。
+
+### React Fiber 的优点
+
+1. 中断与恢复：Fiber 支持任务的暂停和恢复，避免长时间占用主线程，提升页面的响应速度。
+
+2. 优先级管理：不同任务可以分配不同的优先级，高优先级任务（如用户输入）可以优先执行。
+
+3. 性能优化：通过链表结构和副作用标记，减少不必要的节点遍历，提高渲染效率
+
+### React Fiber 工作原理
+
+#### Fiber 节点结构
+
+`Fiber`节点的结构大致如下：
+
+```ts
+// Fiber节点对象伪代码
+{
+  // >>> 1. 实例标识信息 (Instance Identification)
+  type: Function | String, // 组件类型（函数、类）或HTML标签名（'div'）
+  key: null | String,      // 同级节点中的唯一标识，用于Diff算法
+  stateNode: Component | DOMNode, // 对应的类组件实例或DOM节点
+
+  // >>> 2. 构成链表树的结构信息 (LinkedList Structure) - 这是实现可中断遍历的关键！
+  return: Fiber | null,    // 指向父Fiber节点（父节点）
+  child: Fiber | null,     // 指向第一个子Fiber节点（第一个子节点）
+  sibling: Fiber | null,   // 指向下一个兄弟Fiber节点（兄弟节点）
+  // （通过child->sibling->sibling...和return，构成了深度优先遍历的链表结构）
+
+  // >>> 3. 副作用相关信息 (Side Effects) - 标记需要做什么工作
+  flags: Number,           // (旧版本为effectTag) 一个二进制数字，标记这个Fiber需要执行的副作用类型（如：Placement-插入，Update-更新，Deletion-删除）
+  subtreeFlags: Number,    // 标记子树中是否存在副作用，避免递归遍历整个子树
+  deletions: Array<Fiber> | null, // 记录需要被删除的子Fiber
+  hooks: null | HookLinkedList,   // 对于函数组件，存储其hooks链表
+
+  // >>> 4. 状态和Props (State and Props)
+  memoizedProps: any,      // 上次渲染时传入的props
+  pendingProps: any,       // 新的、待处理的props
+  memoizedState: any,      // 上次渲染后的state（对于函数组件，是hook链表的状态）
+  updateQueue: UpdateQueue<any> | null, // 存储来自setState的更新队列
+
+  // >>> 5. 用于调度和交替的工作进度信息 (Work-in-Progress)
+  alternate: Fiber | null, // 指向current树或workInProgress树上对应的节点，用于比较和复用
+  // current树：当前屏幕上显示内容对应的Fiber树
+  // workInProgress树：正在内存中构建的、下一次要渲染的Fiber树
+}
+```
+
+可以看到，`Fiber`节点采用**链表结构**来描述虚拟`DOM`树。使用链表结构有如下好处：
+
+1. 实现可中断与恢复：链表结构将树的父子兄弟关系显式地存储为指针。这意味着`React`可以使用一个简单的`while`循环来手动模拟深度优先遍历。循环是完全可以控制的
+
+   - 中断：`React`处理完一个`Fiber`节点（一个工作单元）后，可以立即检查当前帧是否还有剩余时间。如果没有，直接 break 跳出循环即可中断工作。此时唯一需要保存的“进度”就是一个指向当前节点的指针。
+
+   - 恢复：当浏览器空闲时，`React`重新进入工作循环。它只需要从上次保存的当前节点指针开始，根据链表指针（`child` -> `sibling` -> `return`）找到下一个要处理的节点，然后继续循环即可。
+
+2. 支持优先级调度和任务插队: 链表结构使得“任务插队”变得可行。当一个高优先级的更新（如用户输入）到来时，`React`可以：
+
+   - 中断当前正在进行的低优先级渲染工作（可能正处在链表中间的某个节点）。
+
+   - 直接开始处理高优先级的更新，构建一棵新的、更高优先级的`Fiber`链表（称为`workInProgress tree`）。
+
+   等高优先级的更新被提交到`DOM`后，`React`可以完全丢弃之前被中断的低优先级的`work-in-progress`链表，或者重新开始低优先级的渲染，而不会造成任何状态不一致。
+
+#### Fiber架构下的更新流程
+
+在协调/渲染阶段，`React`做了下面的事情：
+
+1. 构建`WorkInProgress Tree`：`React`会尝试复用现有的`Fiber`节点，创建一棵新的、代表“工作进度”的`Fiber`树（`workInProgress tree`）。这使用了双缓存技术，在内存中完成所有计算，不直接影响屏幕。
+
+2. 遍历并处理每个`Fiber`(`beginWork`)：从根节点开始，`React`会深度优先遍历每个`Fiber`节点，对每个节点执行的主要工作包括：
+
+   - 更新状态：处理组件状态和属性的更新。
+
+   - 调用渲染方法：对于类组件，调用`render`方法；对于函数组件，调用函数本身（这就是为什么函数组件每次更新都会执行整个函数体）。
+
+   - `Diffing`算法：将渲染返回的新子元素（`children`）与旧的子`Fiber`进行对比。
+
+   - 标记副作用：根据对比结果，为`Fiber`节点打上“副作用”（`Effect`）的标签（使用二进制位`flags`表示，如: Placement-插入、Update-更新、Deletion-删除），但此时并不执行任何`DOM`操作。
+
+   - 决定子节点：通过`Diffing`的结果，决定是复用旧的`Fiber`、创建新的`Fiber`还是标记删除。
+
+   - 完成处理 (`completeWork`)：当一个节点的所有子节点都处理完毕后，会回到该节点完成“收尾”工作。例如，为宿主组件（`DOM`节点）准备`props`的更新。
+
+当整个`workInProgress tree`的所有节点都遍历完成后，`React`得到了一棵完整的、标记了所有变更的新树。`React`会将这些所有标记了副作用的`Fiber`节点连接成一个线性链表，称为`Effect List`（副作用列表）。
+
+在提交更新阶段，`React`会遍历`Effect List`，执行`DOM`增删改、调用生命周期/`Effect`钩子。（提交更新阶段不可中断）
+
+#### 调度器：时间切片
+
+`React`通过时间切片的方式去拆分任务，具体工作流程如下：
+
+- 任务开始：`setState`触发一个新的渲染任务。
+
+- 申请时间片：`React`调度器开始工作，根据任务优先级，向浏览器申请一个时间片（例如`5ms`）。
+
+- 循环工作与检查：
+
+  - React 开始循环处理`Fiber`节点（执行`beginWork`和`completeWork`）。
+
+  - 每处理完一个`Fiber`节点，它都会检查当前时间片是否已经耗尽。
+
+- 决策点：
+
+  - 时间充足：继续处理下一个节点。
+
+  - 时间耗尽：立即中断工作，保存当前进度，并归还主线程。
+
+- 浏览器接管：浏览器利用这拿回的主线程进行布局、绘制，并响应用户的点击、输入等操作。用户不会感到卡顿。
+
+- 恢复工作：通过`requestIdleCallback`（或其`polyfill`），浏览器在空闲时通知`React`。`React`再次获取主控制权，从上一次保存的`Fiber`节点继续处理，申请下一个时间片。
+
+- 完成：重复步骤 2-6，直到所有 Fiber 节点处理完毕。然后一次性同步地执行提交阶段（`commitWork`），将最终结果更新到`DOM`上。
+
+由于`requestIdleCallback`的兼容性和触发频率问题，`React`团队自己实现了这部分能力，源码见：https://github.com/facebook/react/blob/main/packages/scheduler/src/forks/Scheduler.js。
+
+#### 调度器：优先级调度机制
+
+##### ExpirationTime
+
+在`React 16.x`（即`React 17`之前）的版本中，`Fiber`架构使用的优先级调度机制是基于`ExpirationTime`（过期时间） 的模型。`ExpirationTime`模型的核心理念是：为每个更新任务计算一个唯一的“过期时间戳”，优先级越高的任务，其过期时间戳越小（意味着越紧迫，需要越快执行）。
+
+React 内部定义了不同的优先级等级，例如：
+
+- ImmediatePriority： 用于需要同步执行的任务。
+
+- UserBlockingPriority： 用于用户交互（如点击、输入）。
+
+- NormalPriority： 用于普通的数据更新、网络请求结果。
+
+- LowPriority： 用于可延迟的任务（如 Offscreen 内容）。
+
+- IdlePriority： 用于非必要的后台任务（最低优先级）。
+
+
+当一个更新（如 setState）被触发时，React 会根据其优先级，计算出一个过期时间。计算公式简化后类似于：`expirationTime = currentTime + timeout`。其中：
+
+- currentTime： 当前时间（一个从应用加载开始持续递增的毫秒数）。
+
+- timeout： 一个常量，优先级越高，timeout 值越小。
+
+例如，高优先级任务的`timeout`可能是`100ms`，而低优先级任务的`timeout`可能是`5s`。这意味着，高优先级任务在`currentTime + 100ms`后就“过期”了，而低优先级任务则有`5s`的“缓冲期”。
+
+`React`调度器始终优先执行队列中`expirationTime`最小的任务（即最紧迫、最快过期的任务）。在执行一个任务（渲染一棵 Fiber 树）的过程中，React 会不断地检查当前时间：
+
+- 如果当前时间小于下一个最高优先级任务的`expirationTime`，说明还有时间，可以继续当前工作。
+
+- 如果有一个更高优先级（更小`expirationTime`）的任务被加入队列，或者当前时间已经超过了当前任务的`expirationTime`（任务已过期），`React`就会中断当前工作，转而去执行那个更高优先级的或已过期的任务。
+
+##### Lanes
+
+使用`ExpirationTime`模型来调度更新存在如下问题：
+
+- 饥饿问题（`Starvation`）： 如果一直有高优先级的更新（如用户输入），那么低优先级的更新（如渲染一个大型列表）可能会因为其过期时间戳不断被推后而永远无法被处理。
+
+- 无法批量处理多个更新： `ExpirationTime`模型更倾向于处理单个最高优先级的更新，难以将多个同一优先级的更新进行高效的批量处理。
+
+- 表达能力有限： 它无法同时表示和处理多个不同优先级的更新。调度器一次只能盯着“一个”最快过期的任务。
+
+`React 17`之后引入了`Lanes`模型（车道模型）来管理优先级，解决了上述问题，为并发模式的实现奠定了坚实的基础。
+
+想象一条有着多条车道的公路。
+
+- 每条车道代表一个优先级（如：用户输入、过渡更新、普通更新等）。
+
+- 一辆车代表一个更新（Update）。
+
+- 一次渲染任务可以占用一条或多条车道（即处理多个优先级的更新）。
+
+车道有宽度（优先级），也有编号。React 使用一个`31`位的二进制数来表示这些车道（`Lane`和`Lanes`类型）。因为优先级是二进制位，所以可以非常高效地使用位操作（|, &, ~）来组合、分离和判断优先级。
+
+<Aside type='tip'>JavaScript 中的位运算是基于 32 位有符号整数进行的，最高位是符号位。为了避免符号位带来的复杂性，React 只使用了低 31 位</Aside>
+
+源码见：https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactFiberLane.js 。
+
+基于`Lanes`的优先级机制工作流程如下：
+
+- `Schedule Update`: 当发生一个更新时（例如 `setState`、`startTransition`），`React`会根据更新的来源和上下文，为其分配一个或多个对应的车道。
+
+- `Select Lane`: 在每次准备构建新的渲染树`（workLoopSync`或`workLoopConcurrent`）之前，调度器需要决定本次渲染要处理哪些优先级的更新（`getNextLanes`）。
+
+  - 检查是否有挂起的车道： 查看`pendingLanes`集合。
+
+  - 选择最高优先级车道： 从`pendingLanes`中找出优先级最高的车道（数值最小的非零车道）。
+
+  - 进行调度： 这是并发模式的核心。调度器会询问浏览器是否有空余时间。
+
+    - 如果当前是同步任务（如 `SyncLane`） 或浏览器空闲： 则直接处理选中的车道。
+
+    - 如果浏览器繁忙： 即使有高优先级更新，`React`也可能中断当前渲染，将主线程交还给浏览器去绘制`UI`或处理用户输入，以避免页面卡顿。这就是时间切片（`Time Slicing`）。
+
+    - 对于低优先级更新（如`TransitionLane`），`React`会主动`yield`（让步） 给浏览器，检查是否有更高优先级的更新进来。
+
+- `Render and Interrupt`: 
+
+    - 渲染过程： React 开始渲染组件树。本次渲染只会处理那些优先级与选中车道相匹配的更新。
+
+    - 中断机制：
+
+      - 在并发渲染过程中，React 会定期中断渲染工作，去检查是否有新的、更高优先级的更新被加入。例如，正在渲染一个低优先级的`Transition`更新时，用户突然点击了按钮（产生`SyncLane`更新）。`React`会立即中断当前的渲染工作，丢弃已经进行的`Fiber`树构建（因为可能已经过时），然后立即开始一次新的、更高优先级的渲染来处理用户的点击。之前被中断的低优先级渲染会完全作废，然后以最新的状态重新开始。
+
+- `Commit and Cleanup`: 当一棵`Fiber`树的渲染工作（`Render Phase`）完成，`React`会将其提交（`Commit Phase`）到 DOM。提交阶段是同步的、不可中断的，以保证`UI`的一致性。提交完成后，`React`会清理已处理的车道：`pendingLanes = pendingLanes & ~renderedLanes`，将刚刚渲染过的车道从待处理集合中移除。
+
+### 参考文章
+
+[React Fiber 简介 —— React 背后的算法](https://juejin.cn/post/7006612306809323533#heading-0)
+
+[React Lanes（泳道）机制](https://juejin.cn/post/7496345825192050722)
+
+## React Diff算法
+
+`React Diff`算法是`React`中用于比较虚拟`DOM`树并计算出最小更新操作的一种算法。它的工作流程可以概括为以下几个步骤：
+
+1. **树的递归比较**：`React`会对新旧两棵虚拟`DOM`树进行递归比较，从根节点开始，逐层比较节点。
+
+2. **比较规则**：
+
+   - **节点类型不同**：如果节点类型（标签名或组件名）不同，`React`会直接销毁旧节点及其子节点，创建新节点并替换。
+
+   - **节点类型相同**：如果是相同类型的节点，`React`会更新该节点的属性，然后递归比较其子节点。
+
+3. **列表节点的比较**：当比较一组子节点（如列表）时，`React`使用`Key`属性来优化比较过程：会尽量复用具有相同`key`的节点，而不是直接销毁和创建。如果没有`key`，`React`可能会采用更暴力的方式更新，导致性能下降和不必要的渲染。
+
+4. **Diffing策略**：
+
+   - **分层比较**：`React`只会对同一层次的节点进行比较，不会跨层次比较。如果节点跨层次移动，`React`会销毁并重新创建。
+
+   - **列表比较（Reconciliation）**：
+
+     1. 定义两个指针（`oldIndex`和`newIndex`）分别指向旧列表和新列表的头部。
+
+     2. 开始遍历，如果新旧列表指针指向的`Fiber`节点的`key`相同且类型相同，则视为可复用，指针后移。
+
+        <Aside type='caution'>
+        从源码：[ReactChildFiber.js](https://github.com/facebook/react/blob/aad7c664ffbde52e5d8004b542d83d6d4b7a32a0/packages/react-reconciler/src/ReactChildFiber.js#L1585)可以看到， 根据`key`来判断节点是否可复用的优先级是最高的。因此：
+        
+        - 避免使用数组`index`作为`key`
+        
+        - 避免使用不稳定的`key`值
+        </Aside>
+
+     3. 如果遇到不可复用的节点，则停止遍历。
+
+     4. 然后，根据停止后的情况：
+
+        - 如果旧列表指针指向为空，那么新列表指针指向的`Fiber`节点以及往后的`Fiber`节点都是待新增的。
+ 
+        - 如果旧列表指针指向不为空，则：
+
+            a. 将剩余的旧`Fiber`节点（从`oldIndex`开始）放入一个以key为键的map中。
+
+            b. 然后从新列表的当前指针（`newIndex`）开始遍历，对于每个新`Fiber`节点，从`map`中查找是否有相同key的旧节点。
+
+                - 如果找到，且类型相同，则复用，并从`map`中删除。
+
+                - 如果找不到，则说明是新增的。
+
+            c. 最后，`map`中剩余的旧节点都是待删除的。
+
+## React Hooks 链表
+
+在函数组件中，每次调用一个 Hook（比如 `useState`、`useEffect` 等），`React`都会将这些 Hook 按照调用的顺序添加到链表中。这个链表是存储在组件对应的`Fiber`节点上的。每个 Hook 节点都会存储相关的状态（对于 `useState` 是 state，对于 `useEffect` 是 effect 对象等）。
+
+在前面的`Fiber`介绍章节中，`Fiber`节点有个`memoizedState`属性。对于函数组件而言，该属性的值为一个链表，记录Hooks的调用链条，如：
+
+```text
+Hooks LinkedList in Fiber.memoizedState
+                                           
+Hook (useState #1)       Hook (useEffect #2)       Hook (useState #3)
+┌───────────────────┐    ┌───────────────────┐    ┌───────────────────┐
+│ memoizedState: 0  │    │ memoizedState: ...│    │ memoizedState: '' │
+│ queue: { ... }    │    │ queue: ...        │    │ queue: { ... }    │
+│ next: ———————————————> │ next: ———————————————> │ next: null         │
+└───────────────────┘    └───────────────────┘    └───────────────────┘
+    ↑                         ↑                         ↑
+    |                         |                         |
+const [count, setCount]   useEffect(...)          const [text, setText]
+= useState(0)                                    = useState('')
+```
+
+基于以上的设计，可以理解如下的几个原则/现象：
+
+- 必须在函数组件的顶层调用Hook（不能在条件、循环或嵌套函数中调用Hook）
+
+- 一个函数组件内部多次调用`useState`能互不干扰

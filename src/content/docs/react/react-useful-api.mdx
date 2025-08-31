@@ -1,0 +1,63 @@
+---
+title: React 部分常用API记录
+
+tableOfContents:
+  minHeadingLevel: 2
+  maxHeadingLevel: 5
+---
+
+本文档用于记录`React`内置的部分特定场景下的常用`API`，包括使用场景以及使用例子。
+
+## createPortal
+
+`React Portal`是`React`提供的一种将子节点渲染到父组件`DOM`层次结构之外的`DOM`节点中的方法，同时保持其在`React`组件树中的位置。
+
+使用场景：
+
+1. **模态框（Modals）**：模态框通常需要覆盖整个页面，并且不受父容器样式（如`overflow: hidden或z-index`）的影响。使用Portal可以将模态框渲染到body的直接子元素，避免被父组件剪裁。
+
+2. **工具提示（Tooltips）**：当工具提示需要突破父容器的溢出隐藏或定位上下文时，可以使用Portal将其渲染到更高层级的DOM节点上。
+
+3. **弹出菜单（Popup Menus）**：类似工具提示，弹出菜单可能需要避免被父容器的样式所影响，确保正确显示。
+
+4. **通知（Notifications）**：全局的通知消息通常需要显示在页面的顶部，不受其他组件布局的影响。
+
+5. **悬停卡（Hover Cards）**：当鼠标悬停在某个元素上时显示的信息卡，有时需要突破父元素的布局限制。
+
+6. **对话框（Dialogs）**：与模态框类似，对话框通常需要覆盖整个页面，并且应该位于其他内容之上。
+
+7. **加载遮罩（Loading Overlays）**：全屏的加载指示器，需要覆盖整个页面或某个区域，并且位于所有内容之上。
+
+
+使用例子（弹出框）：
+
+```jsx
+const Modal = ({ children, isOpen, onClose }) => {
+  const [modalRoot] = useState(() => document.getElementById('modal-root'));
+  const [el] = useState(() => document.createElement('div'));
+            
+  useEffect(() => {
+    if (isOpen) {
+      modalRoot.appendChild(el);
+      document.body.style.overflow = 'hidden'; // 防止背景滚动
+                    
+      return () => {
+          modalRoot.removeChild(el);
+          document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isOpen, el, modalRoot]);
+            
+  if (!isOpen) return null;  
+    return ReactDOM.createPortal(
+      <div className="modal-backdrop" onClick={onClose}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+              {children}
+          </div>
+      </div>, el);
+};
+```
+
+文档：[createPortal – React 中文文档](https://zh-hans.react.dev/reference/react-dom/createPortal)
+
+## Suspense + React.lazy
