@@ -20,7 +20,7 @@ export default defineConfig({
             starlightSidebarTopics(sideBarConfig)
         ],
         components: {
-            Sidebar: './src/components/Sidebar.astro',
+            // Sidebar: './src/components/Sidebar.astro',
         },
         title: 'kira的面试笔记',
         // social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
