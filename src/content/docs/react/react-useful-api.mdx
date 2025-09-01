@@ -60,4 +60,61 @@ const Modal = ({ children, isOpen, onClose }) => {
 
 文档：[createPortal – React 中文文档](https://zh-hans.react.dev/reference/react-dom/createPortal)
 
-## Suspense + React.lazy
+## React.lazy + Suspense
+
+`React.lazy`用于懒加载组件，传入一个`load`函数，返回一个懒加载组件：
+
+```jsx
+import { lazy } from 'react';
+
+const MarkdownPreview = lazy(() => import('./MarkdownPreview.js'));
+```
+
+使用`Suspense`组件可以在懒加载的过程中插入一些中间态UI，用法如下：
+
+```jsx
+<Suspense fallback={<Loading />}>
+  <MarkdownPreview />
+</Suspense>
+```
+
+其中`fallback`属性传入的就是中间态的`UI`（如`Loading`组件）。
+
+## useTransition
+
+`useTransition`是`React 18`引入的一个并发特性（Concurrent Feature），它允许你将一个状态更新标记为非阻塞的、可中断的过渡更新（Transition），从而让高优先级的更新（如用户输入、点击）能够打断它，保持用户界面的流畅和响应。
+
+在没有`useTransition`之前，所有的状态更新都是“紧急”的。当一个耗时的状态更新（如根据用户输入过滤一个超长列表）发生时，它会阻塞线程，导致用户输入无法立即得到响应，输入框会感觉“卡顿”。
+
+经典场景：一个搜索输入框 + 一个搜索结果列表: 
+
+用户在输入框中快速输入 “hello”。每次按键都会触发一个状态更新`setInputValue`，并随之触发一个昂贵的计算来过滤列表`setSearchResults`。由于`setSearchResults`计算量很大，它会阻塞`UI`线程。导致用户输入的下一个字符无法立即渲染，输入框看起来停止了响应，直到过滤计算完成。
+
+使用`useTransition`后，你可以将过滤列表的更新标记为一个“过渡更新”。这样，`setInputValue`（紧急更新）会立即执行，让输入框内容变化；而`setSearchResults`（过渡更新）可以被中断或延迟，不会阻塞输入框的渲染。用户体验会变得非常流畅。
+
+代码示例如下：
+
+```jsx
+// 假设有两个状态：输入值 和 搜索结果
+const [inputValue, setInputValue] = useState('');
+const [searchResults, setSearchResults] = useState([]);
+const [isPending, startTransition] = useTransition();
+
+const handleInputChange = (e) => {
+  const value = e.target.value;
+  
+  // 1. 紧急更新：立即更新输入框的值
+  setInputValue(value);
+  
+  // 2. 过渡更新：将昂贵的列表更新包裹起来
+  startTransition(() => {
+    // 在这个回调函数内部的所有状态更新都会被标记为过渡更新
+    const filteredResults = hugeList.filter(item => 
+      item.name.includes(value)
+    );
+    setSearchResults(filteredResults);
+  });
+};
+```
+
+文档：[useTransition – React 中文文档](https://zh-hans.react.dev/reference/react/useTransition)

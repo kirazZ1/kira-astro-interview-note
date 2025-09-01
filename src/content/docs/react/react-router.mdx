@@ -1,0 +1,339 @@
+---
+title: React Router
+
+tableOfContents:
+  minHeadingLevel: 2
+  maxHeadingLevel: 5
+---
+
+`React Router`是一个用于`React`应用程序中的路由库，可以帮助用户实现单页应用程序（`SPA`），同时也可以方便地管理应用程序的`URL`和视图之间的映射关系。
+
+下面仅对一些面试可能涉及的点进行记录。
+
+### 路由模式
+
+`React Router`包括下面几种路由模式：
+
+1. `HashRouter`：基于`URL`中的`hash`（#）来实现路由，不会向服务器发送请求，适合单页面应用（`SPA`）。在 URL 中的`hash`发生变化时，会触发浏览器的`hashchange`事件，`React Router`会根据新的`hash`值来匹配对应的路由。
+
+2. `BrowserRouter`：基于`HTML5`的`history API`实现路由，可以更自然地呈现`URL`，不需要`#`。但是需要后端支持，否则在刷新页面时会出现`404`错误。
+
+3. `MemoryRouter`：将历史记录存储在内存中，适合测试或其他需要在内存中进行的场景。
+
+4. `StaticRouter`：用于服务器端渲染，接收一个`location`和`context`对象作为 `props`，根据这些参数来决定渲染哪个路由。
+
+比较常用的还是`HashRouter`和`BrowserRouter`，我们也需要知道这两种路由模式底层怎么实现的。
+
+#### HashRouter
+
+`HashRouter`使用URL的hash部分（即`#`后面的部分）来保持UI和URL的同步。由于`hash`的变化不会导致浏览器向服务器发送请求，因此`HashRouter`可以用于不支持HTML5 History API`的旧浏览器或是一些特殊场景。
+
+`HashRouter` 的工作原理如下：
+
+1. 监听`window`的`hashchange`事件，当URL的hash部分发生变化时，更新路由状态并重新渲染相应的组件。
+
+2. 使用`window.location.hash`来获取和设置hash值。
+
+简化版的实现如下：
+
+```js
+class HashRouter {
+    constructor() {
+        this.routes = {};
+        this.currentUrl = '';
+        this.init();
+    }
+
+    // 初始化
+    init() {
+        window.addEventListener('load', this.refresh.bind(this), false);
+        window.addEventListener('hashchange', this.refresh.bind(this), false);
+    }
+
+    // 注册路由
+    route(path, callback) {
+        this.routes[path] = callback || function() {};
+    }
+
+    // 刷新路由
+    refresh() {
+        this.currentUrl = window.location.hash.slice(1) || '/';
+        if (this.routes[this.currentUrl]) {
+            this.routes[this.currentUrl]();
+        }
+    }
+}
+
+// 使用示例
+const router = new HashRouter();
+
+router.route('/', () => {
+    document.getElementById('content').innerHTML = '这是首页';
+});
+
+router.route('/about', () => {
+    document.getElementById('content').innerHTML = '这是关于页面';
+});
+
+router.route('/contact', () => {
+    document.getElementById('content').innerHTML = '这是联系我们页面';
+});
+```
+
+#### BrowserRouter
+
+`BrowserRouter`使用`HTML5 History API`（`pushState`、`replaceState`和`popstate`事件）来保持`UI`和`URL`的同步。它不需要在`URL`中使用`hash`，因此`URL`看起来更自然。但是，它需要服务器配置来支持，因为服务器需要返回同一个`index.html`页面来处理所有的`URL`请求。
+
+`BrowserRouter` 的工作原理如下：
+
+1. 使用`history.pushState`和`history.replaceState`来改变URL，而不重新加载页面。
+
+2. 监听`window`的`popstate`事件，当用户点击浏览器的前进或后退按钮时，更新路由状态并重新渲染组件。
+
+简化版的实现如下：
+
+```js
+class BrowserRouter {
+    constructor() {
+        this.routes = {};
+        this.init();
+    }
+
+    // 初始化
+    init() {
+        window.addEventListener('popstate', (e) => {
+            const path = e.state && e.state.path;
+            this.handleRouteChange(path);
+        });
+        
+        // 初始路由
+        window.addEventListener('load', () => {
+            this.handleRouteChange(window.location.pathname);
+        }, false);
+    }
+
+    // 注册路由
+    route(path, callback) {
+        this.routes[path] = callback || function() {};
+    }
+
+    // 导航到新路由
+    navigate(path) {
+        window.history.pushState({ path }, null, path);
+        this.handleRouteChange(path);
+    }
+
+    // 处理路由变化
+    handleRouteChange(path) {
+        const callback = this.routes[path];
+        if (callback) {
+            callback();
+        }
+    }
+}
+
+// 使用示例
+const router = new BrowserRouter();
+
+router.route('/', () => {
+    document.getElementById('content').innerHTML = '这是首页';
+});
+
+router.route('/about', () => {
+    document.getElementById('content').innerHTML = '这是关于页面';
+});
+
+router.route('/contact', () => {
+    document.getElementById('content').innerHTML = '这是联系我们页面';
+});
+
+```
+
+### 常用组件和 hooks
+
+下面是`React Router`比较常用的组件：
+
+1. `<BrowserRouter>`：用于包裹整个应用程序，并处理路由匹配和导航。
+
+2. `<Route>`：用于定义路由匹配规则和渲染相应的组件。
+
+3. `<Link>`：用于在应用程序中创建导航链接，使用户能够浏览到不同的页面。
+
+4. `<Switch>`：用于包裹多个 `<Route>` 组件，只匹配第一个匹配的路由规则。
+
+5. `<Redirect>`：用于重定向用户到指定的`URL`。
+
+6. `<Params>`：用于从`URL`中提取参数，并将参数传递给路由组件。
+
+7. `<Outlet>`：用于渲染当前匹配的路由组件。
+
+8. `<Navigate>`：用于在路由组件之间导航，而无需使用 `<Link>` 组件
+
+`React Router v6`的常用`hooks`主要有以下几个：
+
+1. `useRoutes()`：用于定义路由规则和路由组件。如：
+   
+   ```jsx
+   import { useRoutes } from "react-router-dom";
+   const routes = [
+     { path: "/", element: <Home /> },
+     { path: "/about", element: <About /> },
+     {
+       path: "/users",
+       element: <Users />,
+       children: [
+         { path: "/", element: <UsersList /> },
+         { path: ":id", element: <UserDetails /> },
+       ],
+     },
+   ];
+   const App = () => {
+     const routing = useRoutes(routes);
+     return <div>{routing}</div>;
+   };
+   ```
+
+2. `useNavigate()`：用于进行编程式导航。如：
+   
+   ```jsx
+   import { useNavigate } from "react-router-dom";
+   const Home = () => {
+     const navigate = useNavigate();
+     const handleClick = () => {
+       navigate("/about");
+     };
+     return (
+       <div>
+         <h1>Home</h1>
+         <button onClick={handleClick}>Go to About</button>
+       </div>
+     );
+   };
+   ```
+
+3. `useParams()`：用于获取路由参数。如：
+   
+   ```jsx
+   import { useParams } from "react-router-dom";
+   const UserDetails = () => {
+     const { id } = useParams();
+     return (
+       <div>
+         <h1>User Details</h1>
+         <p>ID: {id}</p>
+       </div>
+     );
+   };
+   ```
+
+4. `useLocation()`：用于获取当前路由的位置信息。如：
+   
+   ```jsx
+   import { useLocation } from "react-router-dom";
+   const About = () => {
+     const location = useLocation();
+     return (
+       <div>
+         <h1>About</h1>
+         <p>Current location: {location.pathname}</p>
+       </div>
+     );
+   };
+   ```
+
+5. `useMatch()`：用于获取当前路由的匹配信息。如：
+   
+   ```jsx
+   import { useMatch } from "react-router-dom";
+   const UsersList = () => {
+     const match = useMatch("/users");
+     return (
+       <div>
+         <h1>Users List</h1>
+         {match && <p>Matched path: {match.path}</p>}
+       </div>
+     );
+   };
+   ```
+
+### 路由传参方式
+
+#### 1. 动态路由参数（Dynamic Segments）
+
+在定义路由时，在路径中使用冒号（:）来定义参数。例如：
+
+```jsx
+<Route path="/user/:id" component={User} />
+```
+
+在组件中，可以使用 `useParams` hook 来获取参数。
+
+```jsx
+import { useParams } from 'react-router-dom';
+function User() {
+  let { id } = useParams();
+  return <div>User ID: {id}</div>;
+}
+```
+
+#### 2. 查询参数（Query Parameters）
+
+查询参数是URL中问号（?）后面的部分，例如 `/user?name=john&age=25`。
+
+在`React Router`中，我们可以使用 `useLocation` hook 获取到当前的位置对象，然后解析查询字符串。
+
+```jsx
+import { useLocation } from 'react-router-dom';
+
+function User() {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const name = searchParams.get('name');
+  const age = searchParams.get('age');
+  return (
+    <div>
+      Name: {name}, Age: {age}
+    </div>
+  );
+}
+```
+
+#### 3. 状态参数（State）
+
+状态参数是通过 `history.push` 或 `Link` 组件的 `state` 属性传递的，这些参数不会显示在URL中，而是保存在浏览器的历史记录状态中。
+
+使用 `Link` 组件传递状态：
+
+```jsx
+import { Link } from 'react-router-dom';
+// 在组件中
+<Link to="/user" state={{ from: 'home', id: 123 }}>Go to User</Link>
+```
+
+使用 `useNavigate`（v6）或 `history.push`（v5）传递状态：
+
+```jsx
+import { useNavigate } from 'react-router-dom';
+function Home() {
+  const navigate = useNavigate();
+  const goToUser = () => {
+    navigate('/user', { state: { from: 'home', id: 123 } });
+  };
+  return <button onClick={goToUser}>Go to User</button>;
+}
+```
+
+在目标组件中，使用 `useLocation` 获取传递的状态：
+
+```jsx
+import { useLocation } from 'react-router-dom';
+function User() {
+  const location = useLocation();
+  const { from, id } = location.state || {};
+  return (
+    <div>
+      From: {from}, ID: {id}
+    </div>
+  );
+}
+```
