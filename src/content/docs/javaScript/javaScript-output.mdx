@@ -2,6 +2,340 @@
 title: javaScript 输出结果题
 ---
  
+import { Aside } from '@astrojs/starlight/components'
 
-## 异步编程
+输出结果题属于考察基本功的题目，没有什么难度，但需要对基础有纯熟的掌握才能保证万无一失。在网上收集了一部分常考的输出结果题，也让`deepseek`出了一些题。
 
+## 作用域与闭包
+
+### 题目 1
+
+```js
+for (var i = 0; i < 3; i++) {
+  setTimeout(() => {
+    console.log(i);
+  }, 100);
+}
+
+// 3 3 3
+```
+
+分析：`var`声明的变量会提升至全局作用域，当定时器触发时，都是打印的全局作用域的`i`。
+
+
+如果使用`let`定义`i`，每次循环都会创建新的块级作用域，而每次循环创建的`setTimeout`中的`console.log`访问的都是当前循环所在块级作用域中的`i`，因此输出结果则为`0 1 2`。
+
+
+### 题目 2
+
+```js
+let a = 1;
+{
+  let a = 2;
+  {
+    let a = 3;
+    console.log(a); // 输出1: ?
+  }
+  console.log(a); // 输出2: ?
+}
+console.log(a); // 输出3: ?
+// 3 2 1
+```
+
+分析：块级作用域，访问变量优先从当前作用域查找。
+
+### 题目 3
+
+```js
+var scope = "global scope";
+function checkScope() {
+  var scope = "local scope";
+  function f() {
+    return scope;
+  }
+  return f;
+}
+ 
+checkScope()(); 
+
+// local scope
+```
+
+分析：`var`定义的`scope`上升到全局作用域，之后做修改改的也是全局的`scope`，返回的也是全局的`scope`。
+
+
+## 原型与继承
+
+### 题目 1
+
+```js
+function Parent() {
+  this.name = 'parent';
+}
+Parent.prototype.getName = function() {
+  return this.name;
+};
+
+function Child() {}
+Child.prototype = new Parent(); // 原型链继承
+
+let child = new Child();
+console.log(child.getName());
+// parent
+```
+
+分析：
+
+- `Child`实例本身没有`getName`方法。它沿着原型链查找：`child.__proto__` -> `Child.prototype`（也就是`Parent`的实例）。
+
+- `Parent`的实例上也没有`getName`方法。继续向上查找：`Child.prototype.__proto__` -> `Parent.prototype`。
+
+- 在`Parent.prototype`上找到了`getName`方法并执行。方法中的`this`指向调用者`child`，而`child`本身没有`name`，于是继续向上查找，在`Child.prototype`（即那个`Parent`的实例）上找到了`name: 'parent'`。
+
+
+### 题目 2
+
+```js
+
+function Foo() {
+  this.name = 'foo';
+  return { name: 'returned object' };
+}
+
+function Bar() {
+  this.name = 'bar';
+  return 1;
+}
+
+let foo = new Foo();
+let bar = new Bar();
+
+console.log(foo.name); // returned object
+console.log(bar.name); // bar
+```
+
+分析：参考 [MDN - new](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/new), 如果构造函数返回非原始值，则该返回值成为整个`new`表达式的结果。否则，如果构造函数未返回任何值或返回了一个原始值，则返回`newInstance`。（通常构造函数不返回值，但可以选择返回值，以覆盖正常的对象创建过程。）
+
+### 题目 3
+
+```js
+var name = 'Global';
+let obj = {
+  name: 'Obj',
+  prop: {
+    name: 'Prop',
+    getName: function() {
+      return this.name;
+    },
+  },
+  getNm: () => {
+    return this.name;
+  }
+};
+
+let getName = obj.prop.getName;
+let getNm = obj.getNm;
+
+console.log(obj.prop.getName()); // 1
+console.log(getName()); // 2
+console.log(obj.getNm()); // 3
+console.log(getNm()); // 4
+// Prop
+// Global
+// Global
+// Global
+```
+
+分析：
+
+- `this`指向，非箭头函数场景遵循“谁调用指向谁”。前两个`console.log`的输出显而易见，`Prop Global`。
+
+- 箭头函数的`this`在定义时确定，为其所定义位置所处的作用域，且后续不会改变。因此后两个`console.log`输出`Global Global`。
+
+
+
+
+
+
+
+
+
+
+## 异步 & 事件循环
+
+### 题目 1
+
+```js
+console.log('1');
+
+setTimeout(() => {
+  console.log('2');
+}, 0);
+
+Promise.resolve().then(() => {
+  console.log('3');
+});
+
+console.log('4');
+
+// 1 4 3 2
+```
+
+分析：
+
+- 同步任务：先按顺序执行所有同步代码，输出`1`和`4`。
+
+- 微任务：同步代码执行完后，清空微任务队列。Promise.then 的回调是微任务，所以输出`3`。
+
+- 宏任务：微任务队列清空后，执行下一个宏任务。setTimeout 的回调是宏任务，所以最后输出`2`。
+
+<Aside type='tip'>口诀：同步 > 微任务（Promise, process.nextTick） > 宏任务（setTimeout, setInterval, setImmediate, I/O）。</Aside>
+
+### 题目 2
+
+```js
+setTimeout(() => console.log(0));
+new Promise((resolve) => {
+  console.log(1);
+  resolve(2);
+  console.log(3);
+}).then((o) => console.log(o));
+new Promise((resolve) => {
+  console.log(4);
+  resolve(5);
+})
+  .then((o) => console.log(o))
+  .then(() => console.log(6));
+
+// 1 3 4 2 5 6 0
+```
+
+分析：
+
+- 创建计时器，此时计时器内传入函数放到宏任务队列中等待执行
+
+- `new Promise(fn)`中的`fn`是立即执行的，所以先依次输出`1 3 4`，then中的任务推入微任务队列中等待执行
+
+- 当前同步执行完成，会去检测微任务队列中是否有任务并按序执行，所以输出`2 5`，此时第二个promise then产生了新的promise then任务，也是推入微任务队列中等待执行，之后会被执行，输出`6`
+
+- 执行宏任务队列中的任务，输出`0`
+
+### 题目 3
+
+```js
+setTimeout(() => {
+  console.log("A");
+  Promise.resolve().then(() => {
+    console.log("B");
+  });
+}, 1000);
+
+Promise.resolve().then(() => {
+  console.log("C");
+});
+
+new Promise((resolve) => {
+  console.log("D");
+  resolve("");
+}).then(() => {
+  console.log("E");
+});
+
+async function sum(a, b) {
+  console.log("F");
+}
+
+async function asyncSum(a, b) {
+  await Promise.resolve();
+  console.log("G");
+  return Promise.resolve(a + b);
+}
+
+sum(3, 4);
+asyncSum(3, 4);
+console.log("H");
+// D F H C E G A B
+```
+
+分析：
+
+- 首先分析当前代码块的同步代码：`setTimeout`、`Promise.resolve`、`new Promise`、`sum(3,4)`、`asyncSum(a + b)`、 `console.log("H")`。其中`setTimeout`会创建一个定时器，其回调会放到下一个宏任务执行；`Promise.resolve`、`new Promise`中的参数如果是函数，会被立即调用；`sum(3,4)`内没有异步语句，是直接执行的；`asyncSum(a + b)`执行`await Promise.resolve()`实际上等同如下代码：
+  ```js
+  function asyncSum(a, b) {
+    Promise.resolve().then(() => {
+        console.log("G");
+    });
+
+    return Promise.resolve(a + b);
+  }
+  ```
+  
+  会创建微任务，后面语句等待改该微任务被调用后才会执行。所以第一趟输出应该是`D F H`
+
+- 之后按序执行第一次产生的微任务队列中的逻辑（此处只展示输出字符部分）：`console.log("C")`、`console.log("E")`、`console.log("G")`。所以之后的输出应该是`C E G`
+
+- 最后在3000ms后执行刚刚创建的定时器的回调，输出`A`。产生的微任务在定时器回调执行完后会被立即执行，输出`B`。
+
+- 最终结果: `D F H C E G A B`
+
+### 题目 4
+
+```js
+Promise.resolve()
+  .then(() => {
+    console.log('then1');
+    return Promise.resolve(' resolved value ');
+  })
+  .then((res) => {
+    console.log('then2: ', res);
+  });
+
+Promise.resolve()
+  .then(() => {
+    console.log('then3');
+  })
+  .then(() => {
+    console.log('then4');
+  });
+// then1 then3 then4 then2: resolved value 
+```
+
+分析：
+
+- 第一个`Promise`链：输出`then1`，然后返回一个新的`Promise`（`Promise.resolve(...)`）。
+
+- 第二个`Promise`链：输出 then3，然后返回`undefined`（默认），接着触发下一个 then 输出 then4。
+
+- 关键点：`return Promise.resolve(...)`在规范中会创建一个新的微任务（相当于`return Promise.resolve().then(() => { return ‘resolved value’; })`）。这会导致它后面的`then2`被延迟到至少两个微任务之后。因此，即使`then1`最先执行，`then2`却排在第二个`Promise`链的`then4`之后。
+
+
+### 题目 5 
+
+```js
+Promise.resolve(console.log(0))
+  .then(() => {
+    console.log(1);
+    Promise.resolve(console.log(5))
+      .then(() => console.log(3))
+      .then(() => console.log(4))
+      .then(() => console.log(6));
+  })
+  .then(() => console.log(2))
+  .then(() => console.log(7));
+
+// 0 1 5 3 2 7 4 6
+```
+
+分析：
+
+- `console.log(0)`立即执行，输出`0`，将then中的函数推入微任务队列等待执行。
+
+- 按序执行微任务队列的事件：`console.log(1)`、`Promise.resolve(console.log(5))`，输出`1 5`。将`() => console.log(3)`、`() => console.log(2)`推入微任务队列等待执行。
+
+- 按序执行微任务队列的事件：`() => console.log(3)`、() => console.log(2)`，输出`3 2`，将`() => console.log(4)`、`() => console.log(7)`推入微任务队列等待执行。
+
+- 按序执行微任务队列的事件：`() => console.log(4)`、`() => console.log(7)`，输出`4 7`，将`() => console.log(6)`推入微任务队列等待执行。
+
+按序执行微任务队列的事件：`() => console.log(6)`、输出`6`。
+
+结果：`0 1 5 3 2 4 7 6`。

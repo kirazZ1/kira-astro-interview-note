@@ -1,0 +1,140 @@
+---
+title: Vue 原理
+
+---
+
+## Diff算法
+
+`Vue3`的`Diff`算法流程大致如下：
+
+1. 同层比较。如果节点类型不同，就直接替换。
+
+2. 节点类型相同，对于都有子节点的情况：
+
+  - 同步头部节点：从左往右依次对比，直到遇到第一个类型或`key`不同的节点则停止。
+
+  - 同步尾部节点：从右往左依次对比，直到遇到第一个类型或`key`不同的节点则停止。
+
+  经过这两步预处理后，可能会出现三种情况：
+
+  - 新孩子有剩余，旧孩子没剩余：这意味着有新增节点，需要挂载。
+
+  - 旧孩子有剩余，新孩子没剩余：这意味着有节点被移除，需要卸载。
+
+  - 双方都有剩余的未处理节点：这才是最复杂、需要真正进行核心Diff的情况。
+
+3. 核心`Diff`：基于`Map`和最长递增子序列(LIS)算法处理未知序列
+
+  - 为剩下的新子节点建立一个`key -> index`的映射图（Map）。
+
+  - 遍历剩下的旧子节点，用它们的`key`去前面构建的`Map`里查找
+
+    - 如果找不到，说明这个旧节点在新序列中不存在，直接卸载它。
+
+    - 如果找到了，说明这个节点可以复用。`Vue`会`patch`更新这个节点的内容，并记录下这个节点在新序列中的位置（索引），形成一个位置索引数组。这个数组的顺序对应着旧节点的遍历顺序，但其中的数字（新索引）可能是乱序的。
+
+  - 通过计算索引数组的「最长递增子序列」（LIS），来找到一个最长的、顺序没有发生变化的节点序列。以这个最长递增子序列作为参考基准，只对那些不在这个子序列里的节点进行移动操作。这样就能以最少的`DOM`移动次数，将节点调整到正确的位置。
+
+可以参考下面的图辅助理解：
+
+![Diff算法](./imgs/vue-02.png)
+
+## 虚拟DOM优化（Vue3）
+
+### 静态提升 (Static Hoisting)
+ 
+静态提升 (Static Hoisting) 将模板中永远不会改变的静态节点“提升”到渲染函数之外，从而避免不必要的重复创建和比对开销。
+
+在`Vue`模板中，那些没有绑定任何响应式数据（没有 `v-bind`, `v-model,` `{{ }}` 等）的节点就是静态节点。比如一个普通的`<div>Hello World</div>`。`Vue3`的编译器会识别出这些静态节点，并进行如下的优化：
+
+- “提升”到外部： 编译器会在编译阶段，只创建一次这些静态节点的`VNode`。
+
+- 重用时直接引用： 当组件再次渲染时，渲染函数不再重新创建这些静态节点的`VNode`，而是直接重用之前创建好的那一个。
+
+- 跳过Diff： 因为每次渲染用的都是同一个`VNode`对象，在`diff`算法进行新旧节点对比时，由于`oldVNode === newVNode`成立，算法会直接跳过这个节点及其整个子树的比对，因为它知道这里绝对不可能发生变化。
+
+
+### 补丁标志 (Patch Flags)
+
+`Vue`在`vnode`创建调用中直接编码了每个有动态绑定的元素所需的更新类型， 明确告诉运行时（runtime）这个节点具体是哪种类型的内容会变化，从而实现“靶向更新”。如：
+
+- `1` -> 只有文本内容是动态的 (比如 `{{ text }}`)
+
+- `2` -> 只有 class 是动态的 (比如 `:class="classObj"`)
+
+- `4` -> 只有 style 是动态的 (比如 `:style="styleObj"`)
+
+- `8` -> 有多个动态属性（如`id="foo" :class="cls"`），但需要全量对比
+
+具体的`PatchFlag`列表可以参考[core/packages/shared/src/patchFlags.ts at main · vuejs/core](https://github.com/vuejs/core/blob/main/packages/shared/src/patchFlags.ts)。
+
+当`diff`算法遇到带有`patchFlag`的`VNode`时，它就不再需要“盲人摸象”般地全量对比这个节点的所有属性了。它直接看一眼这个“标签”（patchFlag），就知道应该去检查节点的哪个部分。比如标志是 1，它就只更新文本内容；又比如标志是 2，它就只更新 class。这样就把传统的“全量属性对比”优化成了“靶向更新”，性能得到了极大提升。
+
+## Vue3的响应式实现
+
+### getter / setters
+
+在`ref`的实现中，对外层的`value`对象采用`getter/setters`进行读写追踪，如：
+
+```js
+function ref(value) {
+  const refObject = {
+    get value() {
+      track(refObject, 'value')
+      return value
+    },
+    set value(newValue) {
+      value = newValue
+      trigger(refObject, 'value')
+    }
+  }
+  return refObject
+}
+```
+
+### Proxy/Reflect
+
+在`reactive`的实现中，对象类型数据的响应式实现采用`Proxy/Reflect`实现。
+
+`Proxy`：对目标对象进行代理，拦截其操作（如读取`get`、修改`set`、删除`deleteProperty`等）。
+
+`Reflect`：操作对象的工具方法，与`Proxy`拦截器一一对应，保证操作行为的默认正确性。
+
+使用例子如下：
+
+```js
+const proxy = new Proxy(target, {
+  get(target, key, receiver) {
+    return Reflect.get(target, key, receiver);
+  },
+  set(target, key, value, receiver) {
+    return Reflect.set(target, key, value, receiver);
+  }
+});
+```
+
+### 方案对比：Object.defineProperty
+
+1. `Proxy`可以代理整个对象，而`defineProperty`只能劫持对象的属性
+
+- 使用`Object.defineProperty`时，`Vue2`必须遍历对象的每一个属性，递归地将其转换为`getter`和`setter`。这意味着它无法探测到对象新增的属性和删除的属性（所以才需要`Vue.set`和`Vue.delete`这些API）。
+
+- 而`Proxy`是对象级别的代理。它不需要遍历所有属性，它可以监听整个对象。因此，直接给对象添加新属性、删除现有属性，甚至通过索引直接设置数组的新元素，这些操作都能被Proxy捕获到。这让`Vue3`的响应式系统变得非常自然，开发者几乎不需要再关心特殊的API，直接用原生JS的方式操作数据即可。
+
+2. `Proxy`能监听数组的变化，无需重写数组方法
+
+- 在`Vue2`中，为了监听数组的`push`、 `pop`、`splice`等变化，不得不重写这些数组方法，并在其中加入通知更新的逻辑。这对于开发者和运行时的性能都是一种开销。
+
+- 而`Proxy`可以直接监听数组索引的变化和`length`的变化。因此，在`Vue3`中，我们可以直接通过索引修改数组（如`arr[1] = newValue`）或者直接修改`length`，这些操作都能触发响应式更新，这是一个非常大的便利性提升。
+
+3. `Proxy`性能更好
+
+- `Object.defineProperty`需要在一开始就递归遍历整个对象来完成劫持，这个初始化过程在复杂对象上是有性能成本的。
+
+- `Proxy`是在对象层面进行代理，初始化速度通常更快。此外，`Vue3`利用了`Proxy`的特性实现了更高效的依赖收集和跟踪。例如，它只在真正访问到某个属性时才去递归代理其内嵌对象（惰性代理），而不是一开始就全部递归完成，这提升了初始化的性能。
+
+4. `Proxy`拦截操作更为丰富
+
+- `Object.defineProperty`只能拦截属性的读取（`get`） 和设置（`set`）。
+
+- `Proxy`提供了多达13种拦截器，例如`has`（拦截in操作符）、`deleteProperty`（拦截delete操作符）、`ownKeys`（拦截Object.keys()等）。这使得`Vue3`能够实现更全面、更精确的响应式跟踪。

@@ -50,49 +50,6 @@ title: Vue 基础
 
 组合式`API`相关能力：`defineModel`
 
-### Vue3的响应式实现
-
-#### getter / setters
-
-在`ref`的实现中，对外层的`value`对象采用`getter/setters`进行读写追踪，如：
-
-```js
-function ref(value) {
-  const refObject = {
-    get value() {
-      track(refObject, 'value')
-      return value
-    },
-    set value(newValue) {
-      value = newValue
-      trigger(refObject, 'value')
-    }
-  }
-  return refObject
-}
-```
-
-#### Proxy/Reflect
-
-在`reactive`的实现中，对象类型数据的响应式实现采用`Proxy/Reflect`实现。
-
-`Proxy`：对目标对象进行代理，拦截其操作（如读取`get`、修改`set`、删除`deleteProperty`等）。
-
-`Reflect`：操作对象的工具方法，与`Proxy`拦截器一一对应，保证操作行为的默认正确性。
-
-使用例子如下：
-
-```js
-const proxy = new Proxy(target, {
-  get(target, key, receiver) {
-    return Reflect.get(target, key, receiver);
-  },
-  set(target, key, value, receiver) {
-    return Reflect.set(target, key, value, receiver);
-  }
-});
-```
-
 ### 优化API：shallowRef、shallowReactive
 
 `vue3`的响应式系统默认是深度的，对于层级较深的复杂对象而言，可能会造成一部分性能负担。
@@ -129,23 +86,18 @@ const proxy = new Proxy(target, {
 分类：
 
 - 父子组件通信：
+
   - 父 -> 子: `props`、`provide/inject`
+
   - 子 -> 父: 自定义事件(`emit/on`)
+
 - 跨级组件通信：
+
   - 根组件 -> 子组件：`provide/inject`、`attrs`
+  
   - 其他情形：状态管理工具(`Vuex`、`Pinia`)
 
 ## 视图渲染
-
-### Diff算法
-
-带`children`的新旧节点执行比较的`diff`算法过程参考下图：
-![Diff算法](./imgs/vue-02.png)
-
-核心`Diff`中使用`LIS`算法，找到旧序列中存在的待更新节点中的最长递增子序列，供后面新节点的是否移动判断使用，这是为了最大化复用`DOM`节点，减少移动操作。（源码坐标：[core/packages/runtime-core/src
-/renderer.ts](https://github.com/vuejs/core/blob/main/packages/runtime-core/src/renderer.ts#L1910)）
-
-对于静态节点(不带任何响应式数据绑定)，渲染器在首次渲染时会将创建的这部分`vnode`缓存起来，并在后续的重新渲染中使用缓存的 `vnode`，渲染器知道新旧`vnode`在这部分是完全相同的，所以会完全跳过对它们的差异比对。
 
 ### nextTick 方法
 
