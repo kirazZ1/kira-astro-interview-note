@@ -7,7 +7,15 @@ import starlightImageZoom from 'starlight-image-zoom'
 import starlightScrollToTop from 'starlight-scroll-to-top';
 import { viewTransitions } from "astro-vtbot/starlight-view-transitions";
 import starlightSidebarTopics from 'starlight-sidebar-topics'
+import path from 'path';
+import { fileURLToPath } from 'url';
 import sideBarConfig from './src/config/sideBar'
+
+const __filename = fileURLToPath(import.meta.url);
+
+const __dirname = path.dirname(__filename);
+
+const sideBarFilePath = path.resolve(__dirname, './src/components/SideBar.astro');
 
 // https://astro.build/config
 export default defineConfig({
@@ -20,7 +28,7 @@ export default defineConfig({
             starlightSidebarTopics(sideBarConfig)
         ],
         components: {
-            // Sidebar: './src/components/Sidebar.astro',
+            Sidebar: sideBarFilePath,
         },
         title: 'kira的面试笔记',
         // social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
