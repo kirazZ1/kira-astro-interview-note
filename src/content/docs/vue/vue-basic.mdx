@@ -3,6 +3,8 @@ title: Vue 基础
 
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 ## 生命周期
 
 ### 四个阶段：创建、挂载、更新、卸载
@@ -27,7 +29,7 @@ title: Vue 基础
 
 2. 更新/卸载阶段：父组件执行更新/卸载 -> 子组件执行更新/卸载 -> 子组件更新/卸载完成 -> 父组件更新/卸载完成
 
-## 响应式原理
+## 响应式数据
 
 ### ref 和 reactive
 
@@ -99,6 +101,83 @@ title: Vue 基础
 
 ## 视图渲染
 
+### 条件渲染 v-if
+
+`v-if`用于根据表达式的真假值来有条件地渲染一块内容。这块内容只会在指令的表达式返回真值时被渲染。
+
+`v-if`是“真实的”条件渲染，因为它会确保在切换过程中，条件块内的事件监听器和子组件适当地被销毁和重建。它也是惰性的：如果在初始渲染时条件为假，则什么也不做，直到条件第一次变为真时，才会开始渲染条件块。
+
+因为`v-if`是一个指令，它必须附着在一个元素上。如果想切换多个元素，可以用一个`<template>`元素作为不可见的包装器，并在其上使用`v-if`。最终的渲染结果将不包含`<template>`元素。如：
+
+```vue
+<template v-if="isVisible">
+  <h1>标题</h1>
+  <p>段落一</p>
+  <p>段落二</p>
+</template>
+```
+
+### 列表渲染 v-for
+
+`v-for`指令用于基于一个数组或对象来循环渲染一个列表。
+
+在`v-for`循环中，`Vue`强烈建议为每个迭代的元素提供一个唯一的`key`。这个`key`是`Vue`用来识别节点、跟踪每个节点身份、重用和重新排序现有元素的重要机制。它对于列表的性能优化和状态维护（如表单输入值）至关重要。
+
+<Aside type='tip' title='v-if 与 v-for 在同一元素的优先级'>
+- 在`Vue 2`中，`v-for`的优先级高于`v-if`。如果两者同时用于一个元素，`v-if`将分别运行于每个`v-for`循环中。
+- 在`Vue 3`中，`v-if`的优先级高于`v-for`。这意味着如果同时在同一节点上使用两者，`v-if`的条件将无法访问到`v-for`作用域内的变量。
+
+由于优先级问题，官方不建议在同一元素上同时使用`v-if`和`v-for`。这会导致语法错误或不符合预期的行为。
+
+</Aside>
+
+为了优化大型列表渲染的场景，`Vue`还提供了`v-memo`指令。使用例子如下：
+
+```vue
+<template>
+  <div>
+    <div 
+      v-for="user in users" 
+      :key="user.id" 
+      v-memo="[user.id, user.name, user.avatarUrl, user.email, user.department]"
+      class="user-item"
+    >
+      <Avatar :src="user.avatarUrl" />
+      <span>{{ user.name }}</span>
+      <span>{{ user.email }}</span>
+      <span>{{ user.department }}</span>
+      <!-- ... 其他复杂内容 ... -->
+    </div>
+  </div>
+</template>
+```
+
+对于每一个列表项，`Vue`会缓存它最后一次渲染的结果。在下次更新时，它会对比`v-memo`依赖数组中所有的值（`user.id`, `user.name` 等）:
+
+- 如果所有值都完全一样：Vue会完全跳过这个`<div>`及其所有子组件（如`<Avatar>`）的虚拟DOM生成和diff过程，直接复用之前的`DOM`。
+
+- 如果其中有任何一个值发生了变化：`Vue`会像正常一样重新渲染该列表项。
+
+
+### 元素显示/隐藏 v-show
+
+`v-show`用于控制元素的显示/隐藏。
+
+当`v-show`传入值为`true`，对应元素样式会变为`display: none`。由于只是样式的切换，所以开销很低。但正是因为`v-show`只是调整元素的样式，所以不能使用于`<template>`标签。
+
+适用于元素显示/隐藏切换频繁的场景。
+
+### 插槽 Slot
+
+插槽是一种让父组件向子组件传递内容的机制，常用的有四种：
+
+| 插槽类型     | 描述                                                                 | 语法示例                                                                                                                              |
+| :----------- | :------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+| **默认插槽** | 未命名的插槽，用于接收未指定插槽名称的内容。                           | 子组件：`<slot>默认内容</slot>`<br/>父组件：`<ChildComp>内容</ChildComp>` 或 `<template #default>内容</template>`  |
+| **具名插槽** | 具有名称的插槽，允许将内容定向到组件中的特定位置。                     | 子组件：`<slot name="header"></slot>`<br/>父组件：`<template #header>内容</template>`                           |
+| **作用域插槽** | 允许子组件向插槽传递数据，父组件可以使用这些数据来定制插槽内容的渲染。 | 子组件：`<slot :data="item"></slot>`<br/>父组件：`<template #default="slotProps">{{ slotProps.data }}</template>`  |
+| **动态插槽** | 插槽的名称可以由变量动态决定，提供更大的灵活性。                       | 父组件：`<template #[dynamicSlotName]>内容</template>`                                                         |
+
 ### nextTick 方法
 
 #### 作用
@@ -132,3 +211,205 @@ title: Vue 基础
 2. `nextTick`将回调函数推入微任务队列（优先使用`Promise.then`，降级方案为`setTimeout`）。
 
 3. 当前同步代码执行完毕 → 微任务队列执行（`DOM`更新） → `nextTick`回调执行。
+
+## 组合式 API
+
+组合式`API`是一套基于函数的API，它允许我们通过导入函数和使用它们的方式来组织组件的逻辑，而不是通过强制性地将代码分布到不同的选项（如`data`, `methods`, `mounted`）中来组织。
+
+相较于选项式`API`，有如下优点：
+
+- 更好的逻辑组织与代码可读性：组合式`API`让我们可以将同一个逻辑关注点的所有代码集中在一起。你可以将属于某个功能的所有响应式数据、计算属性、方法和生命周期钩子都写在一块。这样，要理解一个功能，你只需要看那一个代码块即可，无需上下翻找。这使得代码更易于阅读和维护。
+
+  如：
+  ```vue
+   <script setup>
+   import { ref, onMounted } from 'vue';
+
+   // 功能A的逻辑（可以甚至提取到一个独立的函数中）
+   function useFeatureA() {
+   const dataA = ref(null);
+   function methodA() { /* ... */ };
+   onMounted(() => { /* 初始化A */ });
+   return { dataA, methodA };
+   }
+
+   // 功能B的逻辑
+   function useFeatureB() {
+   const dataB = ref(null);
+   function methodB() { /* ... */ };
+   onMounted(() => { /* 初始化B */ });
+   return { dataB, methodB };
+   }
+
+   const { dataA, methodA } = useFeatureA();
+   const { dataB, methodB } = useFeatureB();
+
+   return {
+      dataA, methodA,
+      dataB, methodB
+   }; 
+
+   </script>
+  ```
+- 更强的逻辑复用能力：相较于选项式`API`的`Mixin`，组合式函数进行代码复用更为灵活清晰。组合式函数有如下几个特点：
+
+  - 命名可定制： 在解构时可以重命名，避免冲突。
+
+  - 数据来源清晰： 从哪个组合式函数返回了什么值，一目了然。
+
+  - 可传参、可交互： 组合式函数可以接受参数，不同的组合式函数可以相互嵌套使用，灵活性极高。
+
+- 更小的生产包体积：组合式函数下，生命周期/响应式变量定义等都是通过组合式函数实现，按需引入即可，对`Tree-shaking`更为友好。
+
+
+## 其他常用 API
+
+### watch 和 watchEffect
+
+当我们需要在状态改变时去做一些操作的时候，就需要使用侦听器。`Vue`提供了`watch`和`watchEffect`这两个`API`来进行侦听器注册。
+
+`watch`的功能是侦听一个或多个特定的响应式数据源，并在这些数据源发生变化时执行一个回调函数。
+
+如：
+
+```js
+import { ref, watch } from 'vue'
+
+const count = ref(0)
+const state = reactive({ name: 'Vue', version: 3 })
+
+// 1. 侦听一个 ref
+watch(count, (newValue, oldValue) => {
+  console.log(`count 从 ${oldValue} 变成了 ${newValue}`)
+})
+
+// 2. 侦听一个 getter 函数（用于监听 reactive 对象的某个属性）
+watch(
+  () => state.name,
+  (newName, oldName) => {
+    console.log(`名字从 ${oldName} 变成了 ${newName}`)
+  }
+)
+
+// 3. 侦听多个源（数组形式）
+watch([count, () => state.name], ([newCount, newName], [oldCount, oldName]) => {
+  console.log(`多个值变了: count=${newCount}, name=${newName}`)
+})
+
+// 4. 配置选项
+watch(count, (newValue, oldValue) => {
+  // 回调函数
+}, {
+  immediate: true, // 立即执行一次
+  deep: true,      // 深度遍历，用于监听对象或数组内部的嵌套变化
+  flush: 'post'    // 控制回调的触发时机，例如在 DOM 更新后触发
+})
+```
+
+组件初始化时默认不会执行侦听器，可以通过`watch`第三个参数指定`immediate: true`。
+
+`watchEffect`会立即执行传入的函数，同时在这个过程中自动追踪函数内部所依赖的所有响应式属性（类似计算属性`computed`）。并在这些依赖发生任何变化时，重新运行该函数。
+
+`watchEffect`有如下几个特点：
+
+- 自动依赖收集：你不需要手动声明依赖，`Vue`会自动分析回调函数体并收集所有被使用的响应式属性。
+
+- 立即执行：在组件初始化时或`watchEffect`被创建时，会立即运行一次，用于收集依赖。
+
+- 无法获取变化前的值：回调函数只会在依赖变化后运行，你只能拿到当前的最新值。
+
+使用示例如下：
+
+```js
+import { ref, watchEffect } from 'vue'
+
+const count = ref(0)
+const name = ref('Alice')
+
+// 立即执行，并自动追踪 count.value 和 name.value
+watchEffect(() => {
+  // 这个函数体用到了哪些响应式数据，Vue 就会自动把它们作为依赖
+  console.log(`效果触发了！Count: ${count.value}, Name: ${name.value}`)
+  // 常见的用例：发送 API 请求
+  // fetch(`/api/user/${name.value}?count=${count.value}`)
+})
+
+// 当 count 或 name 改变时，上面的 effect 会再次运行。
+```
+
+### useTemplateRef
+
+在`Vue 3.5`以前的版本，我们如果想要获取模板内元素/组件的引用，需要在`setup`定义一个`Ref`对象变量，且变量名需要和组件/元素的`ref`属性传入的字符串对齐。
+
+`Vue 3.5`以后，可以使用`useTemplateRef`获取元素/组件的引用，如：
+
+```vue
+<script setup>
+import { useTemplateRef, onMounted } from 'vue'
+
+// 第一个参数必须与模板中的 ref 值匹配
+const input = useTemplateRef('my-input')
+
+onMounted(() => {
+  input.value.focus()
+})
+</script>
+
+<template>
+  <input ref="my-input" />
+</template>
+```
+
+使用该API的好处有如下几个：
+
+- 1. 增加代码可读性：`Ref`对象一般用于定义响应式变量，但我们在获取组件/元素引用时也是用`Ref`定义。相较于这种方式，使用`useTemplateRef`定义在语义上更为清晰。
+
+- 2. `TypeScript`自动推导类型：使用`useTemplateRef`创建的`ref`类型可以基于匹配的`ref attribute`所在的元素自动推断为静态类型，无需手动标注类型。（参考：[TypeScript 与组合式 API | Vue.js](https://cn.vuejs.org/guide/typescript/composition-api.html#typing-template-refs)）
+
+### provide/inject
+
+`provide`和`inject`是一对用于实现 “依赖注入” 的 API。它们允许一个祖先组件向其所有子孙组件（无论层级有多深）提供一个依赖（数据、方法、甚至整个实例），而不需要通过`props`逐层传递。
+
+一般用于祖先组件给子孙组件提供共享数据的场景。如：
+
+```vue
+<!-- 祖先组件 (Provider) -->
+<script setup>
+import { provide, ref, reactive } from 'vue'
+
+// 提供静态值
+provide('siteName', 'My Awesome Site')
+
+// 提供响应式数据
+const user = reactive({ name: 'Alice', id: 123 })
+provide('user', user)
+
+// 提供方法
+function logout() {
+  // ... 退出登录逻辑
+}
+provide('logout', logout)
+
+// 提供 ref
+const count = ref(0)
+provide('count', count)
+</script>
+
+<!-- 子孙组件 (Consumer) -->
+<script setup>
+import { inject } from 'vue'
+
+// 注入默认值，避免未提供时值为 undefined
+const siteName = inject('siteName', 'Default Site Name') 
+const user = inject('user')
+const logout = inject('logout')
+const count = inject('count')
+
+// 使用注入的值
+console.log(siteName.value)
+user.name = 'Bob' // 修改会影响所有注入此数据的组件
+</script>
+```
+
+
+
