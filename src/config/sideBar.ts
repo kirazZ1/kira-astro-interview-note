@@ -36,6 +36,28 @@ const sideBarConfig: GetFirstParamType<typeof SidebarPlugin> = [
             }
         ],
     },
+    {
+        label: 'CSS',
+        link: '/css/',
+        icon: 'seti:css',
+        items: [
+            {
+                label: 'CSS',
+                autogenerate: { directory: 'css' }
+            }
+        ],
+    },
+    {
+        label: 'Vite',
+        link: '/vite/',
+        icon: 'seti:vite',
+        items: [
+            {
+                label: 'Vite',
+                autogenerate: { directory: 'vite' }
+            }
+        ],
+    },
 ]
 
 export default sideBarConfig
